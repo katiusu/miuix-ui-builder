@@ -89,6 +89,7 @@ description: "Use for any Android UI work in this workspace — building, restyl
 | 只做编译期核验，不查宿主版本 | 某个页面/弹窗"打不开"或"没内容"，其实一进就 `IllegalStateException` | `references/runtime-host-requirements.md`（Miuix 需要 `activity ≥ 1.13.0`） |
 | 只在"正常机器"的前提下调工具链 | aapt2 读不到容器路径 / 解析不了新 platform 的 `resources.arsc` | `references/aarch64-container-toolchain.md` |
 | 每条记录套一张 `Card`、红色表达"正常工作"的指标 | 设计语言里点名的失败做法 + 颜色角色错用 | `references/review-findings.md` 逐条 checklist |
+| 改完 `SKILL.md` 的 frontmatter / 只 `curl` raw 地址就宣布发布成功 | 描述里的 `: `（如 `Keywords: ...`）让 YAML 变成嵌套映射 → 加载器报 `No skills found`，**整个技能静默失效**；raw 地址还会给你 CDN 上的旧内容 | 用消费方命令实跑 + 干净 clone 核对 sha（见"验证"一节） |
 
 ## 工作流
 
@@ -156,6 +157,13 @@ done
 ```
 
 **渲染/设备证据**：有预览、模拟器、真机截图才算"观感已确认"。拿不到就写"未验证"，并说清缺什么、怎么补。
+
+**发布物证据（推 skill / 推文档 / 发 Release 同理）**：不要用 `curl` 某个 raw 地址当唯一证据
+——它在 CDN 上会缓存旧内容，会让你"验证"到一个已经不存在的版本（实测踩过）。要在干净目录里
+`git clone --depth=1` 核对 sha，或用**真正的消费方命令**跑一遍（skill → `npx -y skills add <owner>/<repo> -l`），
+看到它被正确识别才算发布成功。改 `SKILL.md` 的 frontmatter 尤其要跑：
+描述里出现 `: `（例如 `Keywords: ...`）会让 YAML 把描述当成嵌套映射，
+加载器报 `No skills found`，**整个技能静默失效**，而文件看起来完全正常。
 
 ### 6. 交付报告（五段，不要多）
 
