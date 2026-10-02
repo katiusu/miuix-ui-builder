@@ -1,6 +1,6 @@
 ---
 name: miuix-ui-builder
-description: Use for any Android UI work in this workspace — building, restyling, or reviewing a Jetpack Compose screen or app shell, bottom navigation bars (悬浮底栏与普通底栏都必须提供), theming, insets & edge-to-edge, blur / 毛玻璃 / 液态玻璃 surfaces, and Android build or library-version problems. Load it even when you are not sure yet whether the project uses Miuix / HyperOS components — it starts by identifying what the project actually uses. Keywords: Miuix, HyperOS, MiuixTheme, ThemeController, Scaffold, TopAppBar, NavigationBar, FloatingNavigationBar, SearchBar, InputField, Card, Compose, AGP, compileSdk, lint, edge-to-edge, insets, blur, glass, release, review.
+description: "Use for any Android UI work in this workspace — building, restyling, or reviewing a Jetpack Compose screen or app shell, bottom navigation bars (悬浮底栏与普通底栏都必须提供), theming, insets & edge-to-edge, blur / 毛玻璃 / 液态玻璃 surfaces, and Android build or library-version problems. Load it even when you are not sure yet whether the project uses Miuix / HyperOS components — it starts by identifying what the project actually uses. Keywords — Miuix, HyperOS, MiuixTheme, ThemeController, Scaffold, TopAppBar, NavigationBar, FloatingNavigationBar, SearchBar, InputField, Card, Compose, AGP, compileSdk, lint, edge-to-edge, insets, blur, glass, release, review."
 ---
 
 # Miuix UI Builder
