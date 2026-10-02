@@ -1,14 +1,29 @@
 ---
 name: miuix-ui-builder
-description: Use when building, restyling, or reviewing an Android Compose UI in Miuix / HyperOS style — MiuixTheme & ThemeController, FloatingNavigationBar / NavigationBar, Card, blur / "毛玻璃" / "液态玻璃" surfaces, edge-to-edge and system-bar insets, or when the pinned miuix reference version may not match the project, or a Compose / AGP / library version conflict blocks a dependency change.
+description: Use for any Android UI work in this workspace — building, restyling, or reviewing a Jetpack Compose screen or app shell, bottom navigation bars (悬浮底栏与普通底栏都必须提供), theming, insets & edge-to-edge, blur / 毛玻璃 / 液态玻璃 surfaces, and Android build or library-version problems. Load it even when you are not sure yet whether the project uses Miuix / HyperOS components — it starts by identifying what the project actually uses. Keywords: Miuix, HyperOS, MiuixTheme, ThemeController, Scaffold, TopAppBar, NavigationBar, FloatingNavigationBar, SearchBar, InputField, Card, Compose, AGP, compileSdk, lint, edge-to-edge, insets, blur, glass, release, review.
 ---
 
 # Miuix UI Builder
 
+## 什么时候该加载（**放宽后的标准**）
+
+满足**任意一条**就加载，不要先花时间去确认"这是不是 Miuix 工程"：
+
+- 工程里有 Compose 界面代码（`*Screen.kt` / `@Composable` / `androidx.compose.*` 依赖）；
+- 要动底栏 / 顶栏 / 导航 / 主题 / 任何页面布局；
+- 要动 insets（状态栏、导航栏、IME、edge-to-edge）；
+- 要动模糊 / 毛玻璃 / 液态玻璃 / 任何视觉效果；
+- 构建、依赖、`compileSdk`/`targetSdk`、lint、出包、发版出了问题；
+- 用户说"改外观""照这张图改""审查一下界面""加个开关/选项"。
+
+**不确定就加载。** 本技能的第 0 步就是判断工程到底用哪套组件（Miuix 还是纯 Compose、版本多少），
+加载的成本远低于按错版本写一遍再返工。唯一不该加载的是和 Android 界面/构建完全无关的任务
+（纯后端、纯数据处理、纯文案）。
+
 ## 这个技能解决什么
 
 `miuix` 技能是**库的参考手册**（组件目录 + 钉在某版本的源码路径）。本技能是**干活的工作流 + 真实失败清单**，
-补上参考手册管不到的四件事：
+补上参考手册管不到的五件事：
 
 1. **版本真相**——手册钉在 `v0.9.4`，而工程可能是 0.9.3；照手册写会写出编译不过的 API。
 2. **核验纪律**——参数名、`Defaults`、能力检测函数，一律对着**工程实际用的那个版本**的构件核验。
@@ -16,8 +31,7 @@ description: Use when building, restyling, or reviewing an Android Compose UI in
    把交互映射到它的回调之前，先读它实现里那几个 `LaunchedEffect` / `SideEffect`。
 4. **验证诚实度**——编译 / lint / 产物 / 渲染 / 设备是五档不同强度的证据；
    没有渲染或设备证据时，视觉结论只能写"未验证"。
-
-落地细节仍然查 `miuix` 技能；系统栏 / 全屏的检查单见 `references/edge-to-edge.md`。
+5. **固定规格**——有些外观不是"看情况"，而是**硬要求**（见"底栏规格"）。
 
 ## 铁律
 
@@ -37,6 +51,26 @@ description: Use when building, restyling, or reviewing an Android Compose UI in
 8. **验证分层**：编译 / lint / 产物 / 渲染 / 设备不能互相顶替（见"验证"一节）。
 9. **不承诺做不到的前提**：外部 skill 或文档给的前置条件（如 `targetSdk ≥ 35`、某个 API level 的新能力）
    如果被本机工具链挡住，**先验证可行性，再如实报告受阻项 + 证据**，不要硬改配置把构建推倒。
+10. **底栏两种形态**：自带底部导航的应用外壳，**必须同时提供悬浮毛玻璃底栏与贴底普通底栏 + 一个开关**
+    （用户明确说不要才例外）。见下方"底栏规格（硬性）"。
+
+## 底栏规格（硬性要求）
+
+| 形态 | 组件 | 特征 |
+|---|---|---|
+| **悬浮毛玻璃**（默认） | Miuix `FloatingNavigationBar` + AndroidLiquidGlass 的 `drawBackdrop` | 悬浮胶囊、内容从玻璃后面穿过、API < 31 自动退回不透明配色 |
+| **贴底普通** | Miuix `NavigationBar` + `RowScope.NavigationBarItem` | 不透明底色、顶部分隔线、图标 + 文字标签 |
+
+为什么两个都要：悬浮玻璃是"好看的那档"，但它依赖 `RenderEffect`（API 31+）、更重、
+在低端机上更吃性能；贴底普通底栏是**兼容与可读性的兜底**（老设备、低端机、就是不喜欢玻璃的人）。
+做成开关比替用户选死一档好。
+
+实现约束（细节与代码见 `references/bottom-bars.md`）：
+
+- 偏好要**落盘**（`AppPrefs` 这类），经状态持有者（`UiPrefsState` 这类）暴露给界面，设置页给一个开关，**即时生效**；
+- 关掉悬浮形态时**不创建 backdrop、也不挂 `layerBackdrop`**——不透明底栏用不到"每帧录一次图层"的开销；
+- 两种形态**共用同一套"内容让位"逻辑**（各页的 `contentBottomPadding`），不要写两套 padding；
+- 两边的 inset 都由组件自己吃（`defaultWindowInsetsPadding = true`），**不要再给父容器加 padding**。
 
 ## 常见失败（都真实发生过，照单避开）
 
@@ -49,7 +83,9 @@ description: Use when building, restyling, or reviewing an Android Compose UI in
 | Modifier 工厂函数没用 receiver | lint `ModifierFactoryUnreferencedReceiver` | 必须 `this.then(...)` / `this.xxx(...)` |
 | 承诺 `targetSdk`/`compileSdk` 提升却没查 aapt2 | 资源链接阶段整段失败，浪费一轮构建 | `references/android-release.md` 的"工具链闸门" |
 | 拿旧产物当新结果 | APK 时间戳早于源码 mtime | Gradle `UP-TO-DATE` + 产物内容双向核对 |
+| **只搜 `classes.dex` 就断言"某组件没打进包"** | debug 包是 **multi-dex**，符号在 `classes5/6.dex` 里 → 假阴性 | 遍历 `classes*.dex`；混淆包改查**数据字符串**（偏好键、shader 常量） |
 | 只报"构建通过"就收工 | 用户装上去发现布局/观感不对 | 五档证据逐项报，缺的明说"未验证" |
+| **把"我替用户定的默认"藏在代码里** | 用户得翻代码才知道默认值/开关位置 | 交付报告里单列一节：代定的默认 + 一句话怎么改 |
 | 只做编译期核验，不查宿主版本 | 某个页面/弹窗"打不开"或"没内容"，其实一进就 `IllegalStateException` | `references/runtime-host-requirements.md`（Miuix 需要 `activity ≥ 1.13.0`） |
 | 只在"正常机器"的前提下调工具链 | aapt2 读不到容器路径 / 解析不了新 platform 的 `resources.arsc` | `references/aarch64-container-toolchain.md` |
 | 每条记录套一张 `Card`、红色表达"正常工作"的指标 | 设计语言里点名的失败做法 + 颜色角色错用 | `references/review-findings.md` 逐条 checklist |
@@ -82,21 +118,22 @@ mkdir -p /tmp/miuix-src && (cd /tmp/miuix-src && unzip -oq ../miuix-ui-android-<
 
 ### 2. 选组件、定形
 
-按场景查 `miuix` 技能（`component-selection` / `usage-patterns` / `design-language`），挑**公开组件**，
-并在源码里确认每个要用的参数。
+按场景查 `miuix` 技能（`component-selection` / `usage-patterns` / `design-language` / `preferences-and-menus`），
+挑**公开组件**，并在源码里确认每个要用的参数。
 
 ### 3. 设计（用一段话说清）
 
 动手前写清：**层级**、**宿主**（要不要新增 `Scaffold`/`MiuixTheme`）、**状态归属**、
 **insets 谁让开**（含 IME）、**形状与颜色来源**（哪个 Defaults / 哪个 token）。
-说不清就是没想清，别写代码。
+说不清就是还没想清，别写代码。有底栏导航时，先把"底栏两种形态 + 开关"排进方案。
 
 ### 4. 实现
 
 - 最小改动、可回退；一次只改一个关注点（结构 / 观感 / 行为）；
 - 每个新增的公开 API 调用都能指回源码里的那一行；
 - 偏离 Defaults 时把原因写进注释（为什么是 24dp 而不是默认 16dp）；
-- 涉及模糊/玻璃时先读 `references/glass.md`；涉及系统栏/全屏时先读 `references/edge-to-edge.md`。
+- 涉及模糊/玻璃时先读 `references/glass.md`；涉及系统栏/全屏时先读 `references/edge-to-edge.md`；
+  涉及底栏/导航时先读 `references/bottom-bars.md`。
 
 ### 5. 验证（按强度递增，做到哪步报到哪步）
 
@@ -111,18 +148,22 @@ mkdir -p /tmp/miuix-src && (cd /tmp/miuix-src && unzip -oq ../miuix-ui-android-<
 
 ```bash
 /opt/android-sdk/aapt2-arm64/aapt2 dump badging <apk> | grep -E "^package:|sdkVersion|targetSdk"
-unzip -p <apk> classes.dex | strings | grep -c "<效果库特有的着色器字符串>"   # 确认效果代码没被 R8 裁掉
+# 查"某个组件/能力是否真的进了包"：debug 包是 multi-dex，必须遍历所有 dex
+for d in $(unzip -l <apk> | grep -oE "classes[0-9]*\.dex"); do
+  unzip -p <apk> "$d" | strings | grep -c "<组件名或 shader 常量>"
+done
 ./gradlew :app:assembleRelease        # 再跑一次；compileXxxKotlin UP-TO-DATE 即"产物=当前源码"
 ```
 
 **渲染/设备证据**：有预览、模拟器、真机截图才算"观感已确认"。拿不到就写"未验证"，并说清缺什么、怎么补。
 
-### 6. 交付报告（四段，不要多）
+### 6. 交付报告（五段，不要多）
 
 1. **改了什么**（文件 + 一句话职责）；
-2. **依据**（哪条是源码契约、哪条是 Defaults、哪条是用户指定的视觉、哪条是自研件）；
-3. **验证到哪一步**（编译 / lint / 产物 / 渲染 / 设备逐项给结果；lint 要给"基线 vs 新增"）；
-4. **未验证 / 已知取舍**（明确列出，不要用"应该没问题"糊过去）。
+2. **依据**（哪条是源码契约、哪条是 Defaults、哪条是用户指定的视觉、哪条是自研件、哪条是硬性规格）；
+3. **我替你定的默认**（默认值 / 开关位置 / 交互选择，逐条写"想改成什么就动哪里"）；
+4. **验证到哪一步**（编译 / lint / 产物 / 渲染 / 设备逐项给结果；lint 要给"基线 vs 新增"）；
+5. **未验证 / 已知取舍**（明确列出，不要用"应该没问题"糊过去）。
 
 ## 玻璃：先分清毛玻璃和液态玻璃
 
@@ -141,6 +182,7 @@ unzip -p <apk> classes.dex | strings | grep -c "<效果库特有的着色器字�
 
 - `references/api-verification.md` —— 把任意版本依赖拉下来核验 API；用 Gradle `.module` 预判版本冲突
 - `references/component-contracts.md` —— 组件内部会动你的状态：怎么找、怎么改
+- `references/bottom-bars.md` —— **底栏规格的完整实现**：两种形态、开关、落盘、backdrop 门控、内容让位、RowScope 坑
 - `references/glass.md` —— 毛玻璃 vs 液态玻璃、两套库配方、换库迁移的坑、降级阶梯
 - `references/edge-to-edge.md` —— 全屏 + 系统栏 / IME 内边距检查单、系统栏图标与主题的坑、被工具链挡住时怎么报
 - `references/android-release.md` —— 出包 → 核对 → 签名 → 推送 → 发 Release；工具链闸门
@@ -153,7 +195,9 @@ unzip -p <apk> classes.dex | strings | grep -c "<效果库特有的着色器字�
 - Android SDK `/opt/android-sdk`：原生 `aapt`/`aapt2` 是 **x86**（arm64 机器上 `bad machine`），
   能跑的是 `apksigner` / `zipalign` 脚本和手工编的 `/opt/android-sdk/aapt2-arm64/aapt2`（版本低，见 release 参考）。
 - 工程常在 `/sdcard`（FUSE，小文件 IO 慢）；构建目录是否重定向由工程配置决定，**别擅自改**。
-- 长构建容易被会话中断打断：恢复后先核 `ps`、产物时间戳与 git 状态，再决定重跑。
+- 长构建容易被会话中断打断（本项目实测一次 7~10 分钟）。恢复流程：先 `ps` 看有没有 gradle 在跑，
+  再**用 `aapt2 dump badging` 读产物里的版本号**判断上一轮跑到哪：debug 包已是新版本 = 编译过了、
+  只差 release 打包；release 还是旧版本 = 没跑完，直接重跑（幂等）。最后核 `git status`，别把已提交的改动重做一遍。
 - 读屏/截屏需要用户在 DSHA「设置 → 设备能力授权 → 设置屏幕操作」开启；没开时 `/app/ui/*` 一律返回
   「无障碍服务未开启」——不要反复重试，按"无法截图验证"如实报告。
 - 本机是 **aarch64 容器 + 双命名空间**：aapt2 要经 `/system/bin/linker64` 启动、且 argv 与 **daemon stdin**

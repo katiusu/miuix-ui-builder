@@ -130,3 +130,33 @@ ls /opt/android-sdk/platforms/                  # 目标 platform 是否已装
 注意：**时间戳不可靠**（FUSE 挂载 + 会话中断后时钟/ mtime 会乱），所以别只看 mtime，
 用 `UP-TO-DATE` + 产物内容标记（dex 里的特征字符串 / `aapt2 dump badging` 的版本号）双向核对。
 
+### 查"某个组件/能力是否真的进了包"
+
+```bash
+# ❌ 只查 classes.dex：debug 包是 multi-dex（实测有 classes..classes6），会得到假的 0
+unzip -p app-debug.apk classes.dex | strings | grep -c FloatingNavigationBarItem     # 0 ← 假阴性
+
+# ✅ 遍历所有 dex
+for d in $(unzip -l app-debug.apk | grep -oE "classes[0-9]*\.dex"); do
+  echo -n "$d: "
+  unzip -p app-debug.apk "$d" | strings | grep -cE "FloatingNavigationBarItem"
+done        # → classes5.dex: 1, classes6.dex: 10  ← 真在包里
+
+# ✅ 混淆过的 release 包：符号名会被 R8 改掉，改查**数据字符串**
+unzip -p app-release.apk classes.dex | strings | grep -c "floating_nav_bar"          # 偏好键会留下来
+```
+
+选哪一种取决于你要证明什么：证明"代码路径存在"用 debug 包的类名；证明"配置/资源/字符串生效"
+用 release 包里的数据字符串。**"搜不到"不等于"没有"**，先排除 multi-dex 与混淆这两个假阴性来源再说结论。
+
+### 构建被会话中断之后怎么接着做
+
+长时间构建（本环境实测 7~10 分钟）容易被会话重启打断，恢复时**不要凭记忆假定成败**：
+
+1. `ps aux | grep gradle` —— 还有没有在跑；
+2. 用 `aapt2 dump badging <apk> | grep ^package:` 读**产物里的版本号**：
+   - debug 包已是新版本、release 还是旧版本 → 编译过了，只差 release 打包，补跑 `assembleRelease`；
+   - 两个都是旧版本 → 没跑完，整条重跑（幂等）；
+3. `git status` / `git log -1` —— 别把已经提交的改动再做一遍。
+
+
