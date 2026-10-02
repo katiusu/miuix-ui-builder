@@ -50,6 +50,9 @@ description: Use when building, restyling, or reviewing an Android Compose UI in
 | 承诺 `targetSdk`/`compileSdk` 提升却没查 aapt2 | 资源链接阶段整段失败，浪费一轮构建 | `references/android-release.md` 的"工具链闸门" |
 | 拿旧产物当新结果 | APK 时间戳早于源码 mtime | Gradle `UP-TO-DATE` + 产物内容双向核对 |
 | 只报"构建通过"就收工 | 用户装上去发现布局/观感不对 | 五档证据逐项报，缺的明说"未验证" |
+| 只做编译期核验，不查宿主版本 | 某个页面/弹窗"打不开"或"没内容"，其实一进就 `IllegalStateException` | `references/runtime-host-requirements.md`（Miuix 需要 `activity ≥ 1.13.0`） |
+| 只在"正常机器"的前提下调工具链 | aapt2 读不到容器路径 / 解析不了新 platform 的 `resources.arsc` | `references/aarch64-container-toolchain.md` |
+| 每条记录套一张 `Card`、红色表达"正常工作"的指标 | 设计语言里点名的失败做法 + 颜色角色错用 | `references/review-findings.md` 逐条 checklist |
 
 ## 工作流
 
@@ -141,6 +144,9 @@ unzip -p <apk> classes.dex | strings | grep -c "<效果库特有的着色器字�
 - `references/glass.md` —— 毛玻璃 vs 液态玻璃、两套库配方、换库迁移的坑、降级阶梯
 - `references/edge-to-edge.md` —— 全屏 + 系统栏 / IME 内边距检查单、系统栏图标与主题的坑、被工具链挡住时怎么报
 - `references/android-release.md` —— 出包 → 核对 → 签名 → 推送 → 发 Release；工具链闸门
+- `references/runtime-host-requirements.md` —— 宿主要求：编译通过 ≠ 组合期不炸；从 logcat 栈 + `javap` 归因"页面打不开"
+- `references/aarch64-container-toolchain.md` —— aarch64 容器专属：aapt2 双命名空间 shim（含 daemon stdin 协议）、影子 SDK、镜像、Git 兜底
+- `references/review-findings.md` —— 一轮 UI review 实际会抓到的 15 类不符合项（可直接当自查 checklist）
 
 ## 本机环境备忘（换机器请自行调整）
 
@@ -150,3 +156,9 @@ unzip -p <apk> classes.dex | strings | grep -c "<效果库特有的着色器字�
 - 长构建容易被会话中断打断：恢复后先核 `ps`、产物时间戳与 git 状态，再决定重跑。
 - 读屏/截屏需要用户在 DSHA「设置 → 设备能力授权 → 设置屏幕操作」开启；没开时 `/app/ui/*` 一律返回
   「无障碍服务未开启」——不要反复重试，按"无法截图验证"如实报告。
+- 本机是 **aarch64 容器 + 双命名空间**：aapt2 要经 `/system/bin/linker64` 启动、且 argv 与 **daemon stdin**
+  都要做路径翻译；SDK 需要一个落在 `/sdcard` 的"影子 SDK"（`ANDROID_HOME` 指过去）。
+  完整 shim、影子 SDK 组装、镜像 `init.gradle`、Git 推不上去时的 Git Data API 兜底，见
+  `references/aarch64-container-toolchain.md`。
+- 依赖坐标只要 `repo1.maven.org` 通就能拉（sources jar 首选）；整仓源码用 `codeload.github.com` 的 tarball 更快；
+  `git push` 失败不等于网络全断——先分别探 `api.github.com` / `github.com` 再决定走哪条路。
