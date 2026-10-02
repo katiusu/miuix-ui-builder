@@ -1,0 +1,28 @@
+miuix-ui-builder
+Copyright 2026 katiusu
+
+Licensed under the Apache License, Version 2.0 (see LICENSE).
+
+-------------------------------------------------------------------------------
+改编说明
+
+本仓库中的 references/edge-to-edge.md 是对 Google 官方 "Android skills" 项目中
+edge-to-edge skill 的检查单与做法的改写与补充：
+
+    Android skills — https://github.com/android/skills
+    Copyright Google LLC
+    Licensed under the Apache License, Version 2.0
+
+改动内容：以中文重述检查单、补充实测到的坑（系统栏图标与应用内主题不同步、
+Miuix 自带 inset 处理导致的重复内边距、被工具链挡住时如何报告），
+并把示例代码改写为适配本项目主题模式的形式。
+
+-------------------------------------------------------------------------------
+引用（未随本仓库打包，各自保留其许可证）
+
+    Miuix (HyperOS Compose 组件库)      https://github.com/compose-miuix-ui/miuix
+                                         Apache License 2.0
+    AndroidLiquidGlass / Backdrop       https://github.com/Kyant0/AndroidLiquidGlass
+                                         Apache License 2.0
+
+本仓库的文字与示例代码为原创整理，不含上述项目的源码副本。

@@ -94,3 +94,39 @@ curl -sL "…/<asset>.apk" -o /tmp/a.apk && sha256sum /tmp/a.apk    # 与 Releas
 
 Release 说明里写清：**签名证书 SHA-256**（让用户确认能覆盖升级）、**APK SHA-256**（让用户校验），
 以及从哪个旧版本可以直接升级、哪个必须卸载重装。
+
+## 工具链闸门：改 SDK / 依赖前先查
+
+**教训**：把 `compileSdk` 从 34 提到 35 后，构建挂在资源链接阶段：
+
+```
+ERROR: AAPT: error: failed to load include path …/platforms/android-35/android.jar
+# 直接读那个 jar 才看清根因：error: illegal map type 'string' (22)  ← aapt2 版本太老
+```
+
+排查顺序（30 秒，能省一轮构建）：
+
+```bash
+aapt2 version                                   # 能跑的 aapt2 是哪一代
+file /opt/android-sdk/build-tools/*/aapt2       # e_machine 3e=x86-64, b7=aarch64
+grep -rn aapt2FromMavenOverride ~/.gradle/gradle.properties /root/.gradle/gradle.properties 2>/dev/null
+ls /opt/android-sdk/platforms/                  # 目标 platform 是否已装
+```
+
+经验：
+
+- SDK 里多数二进制是 **x86-64**；arm64 容器里只有手工编的 `aapt2`（版本可能很旧）。
+  `build-tools;3x.0.0` 自带的 aapt2 是 x86 → 在 arm64 上直接 `bad machine`，换不了。
+- aapt2 太老的表现是**解析不了新 platform 的 `resources.arsc`**，不是权限问题（文件可读、`unzip -t` 通过）。
+- 结论：**先确认工具链能覆盖目标 API level，再动 `compileSdk/targetSdk`**；做不到就保持原样并把受阻项写清楚。
+
+## 产物与源码是否一致（比复述 BUILD SUCCESSFUL 有力）
+
+```bash
+./gradlew :app:assembleRelease        # 再跑一次
+# 期望：compileReleaseKotlin UP-TO-DATE（Gradle 按输入哈希判定"产物=当前源码"），packageRelease 可执行
+```
+
+注意：**时间戳不可靠**（FUSE 挂载 + 会话中断后时钟/ mtime 会乱），所以别只看 mtime，
+用 `UP-TO-DATE` + 产物内容标记（dex 里的特征字符串 / `aapt2 dump badging` 的版本号）双向核对。
+

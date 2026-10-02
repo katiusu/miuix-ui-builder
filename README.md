@@ -1,13 +1,14 @@
 # miuix-ui-builder
 
-一个 **agent skill**：在真实 Android 工程里构建 / 重构 **Miuix（HyperOS 设计语言）Compose 界面**的工作流。
+一个 **agent skill**：在真实 Android 工程里构建 / 重构 **Miuix（HyperOS 设计语言）Compose 界面**的工作流 + 真实失败清单。
 
 它不是组件手册 —— 组件手册是 [`miuix`](https://github.com/limczhh/miuix-skill) 那个 skill 的职责。
-它补齐的是参考手册管不到的三件事：
+它补齐的是参考手册管不到的四件事：
 
-1. **版本真相**：手册钉在某个版本，工程可能用别的版本。照手册写会写出编译不过的 API。本 skill 要求先锁定工程实际依赖的版本，并**以工程为准**。
+1. **版本真相**：手册钉在某个版本，工程可能用别的版本。照手册写会写出编译不过的 API。先锁定工程实际依赖的版本，并**以工程为准**。
 2. **核验纪律**：每个参数名、每个 `Defaults`、每个能力检测函数，都要对着**该版本的真实构件**（sources jar / 字节码 / AAR 元数据 / `.module`）核验，不靠记忆、不靠别的库的命名习惯。
-3. **验证诚实度**：编译 / lint / 产物 / 渲染 / 设备是五种不同强度的证据，不能互相顶替。没有渲染或设备证据时，视觉结论只能写"未验证"。
+3. **组件契约**：组件内部的副作用（清自己的状态、改 `enabled`、装返回拦截）比它的签名更危险；把交互映射到它的回调之前，先读它实现里那几个 `LaunchedEffect` / `SideEffect`。
+4. **验证诚实度**：编译 / lint / 产物 / 渲染 / 设备是五种不同强度的证据，不能互相顶替。没有渲染或设备证据时，视觉结论只能写"未验证"。
 
 ## 安装
 
@@ -19,20 +20,24 @@ npx skills add katiusu/miuix-ui-builder
 
 | 文件 | 作用 |
 |---|---|
-| [`SKILL.md`](SKILL.md) | 入口：7 条铁律 + 6 步工作流 + 交付报告格式 + 玻璃效果判定 |
-| [`references/glass.md`](references/glass.md) | 毛玻璃 vs 液态玻璃的判定标准、两套库（miuix-blur / backdrop）的配方与坑、性能与降级阶梯 |
+| [`SKILL.md`](SKILL.md) | 入口：9 条铁律 + 8 条真实失败清单 + 6 步工作流 + 交付报告格式 |
+| [`references/component-contracts.md`](references/component-contracts.md) | 组件内部会动你的状态：Miuix `SearchBar`/`InputField` 回车清空关键词的完整归因，以及 10 分钟审计一个陌生组件的方法 |
+| [`references/glass.md`](references/glass.md) | 毛玻璃 vs 液态玻璃的判定、两套库（miuix-blur / backdrop）配方、**换库迁移的六个坑**、性能与降级阶梯 |
+| [`references/edge-to-edge.md`](references/edge-to-edge.md) | 全屏 + 系统栏 / IME 检查单、**系统栏图标跟随应用内主题**的坑（含字节码核验）、被工具链挡住时怎么报 |
 | [`references/api-verification.md`](references/api-verification.md) | 把任意版本的依赖拉下来核验 API：sources jar、javap、AAR 元数据、Gradle `.module` 预判版本冲突 |
-| [`references/android-release.md`](references/android-release.md) | 出包 → 核对产物 → 签名（含"能不能覆盖升级"的判定）→ 推送 → 发 GitHub Release + 匿名复核 |
+| [`references/android-release.md`](references/android-release.md) | 出包 → 核对产物 → **工具链闸门** → 签名（含"能不能覆盖升级"）→ 推送 → 发 Release + 匿名复核 |
 
-## 七条铁律
+## 九条铁律（摘要）
 
 1. **版本真相**：以工程实际依赖为准，版本不一致要在报告里点明。
 2. **API 对着真实构件核验**，不猜签名。
-3. **Defaults 优先**，偏离默认值必须有理由。
-4. **不发明语义 token**（没有 `success`/`warning` 就不要编）。
-5. **不手搓组件**；确实要自组合，就声明它是自研件，并自己负责语义 / 禁用态 / 无障碍。
-6. **状态归属不变**：重构外观不顺手改状态所有者、导航、insets。
-7. **验证分层**，没有渲染/设备证据就写"未验证"。
+3. **先读组件实现，再映射你的回调**。
+4. **Defaults 优先**——但**用户明确给的视觉 > 库的 Defaults**，别拿"规范"压用户要的效果。
+5. **不发明语义 token**（没有 `success`/`warning` 就不要编）。
+6. **不手搓组件**；确实要自组合，就声明它是自研件，并自己负责语义 / 禁用态 / 无障碍。
+7. **状态归属不变**：重构外观不顺手改状态所有者、导航、insets。
+8. **验证分层**，没有渲染 / 设备证据就写"未验证"。
+9. **不承诺做不到的前提**：外部 skill 给的前置条件（如 `targetSdk ≥ 35`）如果被工具链挡住，先验证可行性，再如实报告受阻项 + 证据，不要硬改配置把构建推倒。
 
 ## 毛玻璃 ≠ 液态玻璃
 
@@ -47,7 +52,28 @@ npx skills add katiusu/miuix-ui-builder
 `glass.md` 里有从源码判断"一个库到底有没有真折射"的方法（搜 `lens(` / `refractionHeight` / `uniform shader content`），
 以及取样源不能包含自身、模糊之上要叠容器色、API 31/33 的降级阶梯这三条通用约束。
 
+## 这个 skill 怎么长出来的
+
+不是凭空写的，是几次真实返工攒出来的（SKILL.md 里的"常见失败"表逐条对应）：
+
+- 把只做模糊的底栏写成"液态玻璃" → 用户当场指出"这只是毛玻璃"；
+- 把"回车"映射成组件的"收起搜索"，没读实现 → 关键词被组件自己清掉；
+- 按"库 Defaults 优先"把圆角改成库默认值 → 偏离了用户给的参考图；
+- 升级效果库前没读 Gradle `.module` → 新版本要求更高 AGP，构建直接失败；
+- 承诺 `compileSdk 35` 却没查 aapt2 → 资源链接阶段整段失败。
+
+## 开源协议
+
+[Apache License 2.0](LICENSE)。
+
+选它的原因：本 skill 的 [`references/edge-to-edge.md`](references/edge-to-edge.md) 是对 Google 官方
+[`android/skills`](https://github.com/android/skills)（Apache-2.0）中 `edge-to-edge` skill 检查单的改写与补充，
+用同一协议最干净；同时它带明确的专利授权，适合被工具链/agent 广泛消费。
+
+见 [`NOTICE`](NOTICE)：其中说明了对 android/skills 的改编，以及本 skill **只是引用、并未打包**的第三方项目
+（Miuix、AndroidLiquidGlass 等，各自保留其许可证）。
+
 ## 注意
 
-- SKILL.md 末尾的「本机环境备忘」（Android SDK 路径、arm64 上的 aapt2 用法、DSHA 无障碍开关）是**作者机器相关**的部分，换机器请按自己的环境调整，其余内容是通用的。
-- 仓库暂未附加开源协议；如需分发请先加一个 LICENSE。
+- SKILL.md 末尾的「本机环境备忘」（Android SDK 路径、arm64 上的 aapt2、DSHA 无障碍开关）是**作者机器相关**的部分，
+  换机器请按自己的环境调整，其余内容是通用的。

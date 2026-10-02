@@ -113,3 +113,29 @@ API ≥ 33  → 模糊 + 折射 + 高光 + 容器色   （液态玻璃）
 API 31-32 → 模糊 + 容器色                 （毛玻璃）
 API < 31  → 不挂任何效果 + 不透明配色      （普通表面）
 ```
+
+## 换库迁移：miuix-blur → backdrop（实测记录）
+
+同一个效果可以换渲染器而不换观感。这类改动**只动"效果层"**，底栏/卡片的形状与 Defaults 不动。
+实测的六个坑：
+
+1. **录制侧要用具体类，绘制侧收接口**。`Modifier.layerBackdrop()` 只接受 `LayerBackdrop`，
+   而 `Modifier.drawBackdrop()` 收的是 `Backdrop` 接口 → 变量声明成 `LayerBackdrop?` 两边都能用。
+   写反了会在编译期报 `actual type is 'Backdrop', but 'LayerBackdrop' was expected`。
+2. **`rememberLayerBackdrop(onDraw)` 把 onDraw 当 remember 的 key**（backdrop 2.0.0 实测）。
+   内联 lambda 会在每次重组时重建图层、重置录制定位 → 必须把 onDraw `remember` 成稳定引用
+   （按它真正依赖的值做 key，例如主题色）。
+3. **模糊半径的单位**。miuix-blur 的 `blurRadius` 是 dp；backdrop 的 `blur(radius: Float)` 是**像素**，
+   且它的 `effects` 块 receiver 本身就是 `Density` → 直接 `blur(14.dp.toPx())`。
+4. **库没有 Defaults 时**，别为了"遵守 Defaults 优先"就留一个裸数字：把它提成具名常量并写明依据
+   （backdrop 只给原语，没有任何尺寸 Defaults）。
+5. **阴影别叠两层**。glass 自带 shadow 参数，组件（如 Miuix `FloatingNavigationBar`）也有
+   `shadowElevation` → 选一边，另一边传 `null`。
+6. **绘制顺序**（都由源码核验）：`shadow → 背板(模糊/折射) + 容器色 → 组件内容 → highlight`。
+   即阴影在玻璃之下、高光在内容之上；高光因此不会盖住图标。
+
+**钉版本要有依据**：如果新版会拖进"要求更新构建工具"的依赖（例：某库 2.0.1 依赖 Compose 1.12.0，
+而 androidx Compose 1.12.0 要求 AGP ≥ 9.1），就先用 Gradle `.module` 确认冲突，再决定钉旧版；
+并**用 `diff -rq` 对比两个版本的源码树**，确认除了依赖声明没有别的差异 —— 否则"钉旧版"是在赌。
+钉版本要在依赖目录和 README 里写明原因与解除条件。
+
