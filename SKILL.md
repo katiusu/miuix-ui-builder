@@ -1,29 +1,39 @@
 ---
 name: miuix-ui-builder
-description: "Use for any Android UI work in this workspace — building, restyling, or reviewing a Jetpack Compose screen or app shell, bottom navigation bars (悬浮底栏与普通底栏都必须提供), theming, insets & edge-to-edge, blur / 毛玻璃 / 液态玻璃 surfaces, and Android build or library-version problems. Load it even when you are not sure yet whether the project uses Miuix / HyperOS components — it starts by identifying what the project actually uses. Keywords — Miuix, HyperOS, MiuixTheme, ThemeController, Scaffold, TopAppBar, NavigationBar, FloatingNavigationBar, SearchBar, InputField, Card, Compose, AGP, compileSdk, lint, edge-to-edge, insets, blur, glass, release, review."
+description: "Use for Miuix / HyperOS (top.yukonga.miuix) Android UI appearance work — once the project is confirmed to use Miuix, load it for any building, restyling, or reviewing of a Compose screen or app shell: bottom navigation bars (悬浮底栏与普通底栏都必须提供), top bars, layout, theming, insets & edge-to-edge, blur / 毛玻璃 / 液态玻璃 surfaces, plus Android build and library-version problems. Keywords — Miuix, HyperOS, MiuixTheme, ThemeController, Scaffold, TopAppBar, NavigationBar, FloatingNavigationBar, SearchBar, InputField, Card, Compose, edge-to-edge, insets, blur, glass, release, review."
 ---
 
 # Miuix UI Builder
 
-## 什么时候该加载（**放宽后的标准**）
+## 什么时候该加载（**判定门槛已放宽**）
 
-满足**任意一条**就加载，不要先花时间去确认"这是不是 Miuix 工程"：
+先做一次判定，成本只有几秒：
 
-- 工程里有 Compose 界面代码（`*Screen.kt` / `@Composable` / `androidx.compose.*` 依赖）；
-- 要动底栏 / 顶栏 / 导航 / 主题 / 任何页面布局；
-- 要动 insets（状态栏、导航栏、IME、edge-to-edge）；
-- 要动模糊 / 毛玻璃 / 液态玻璃 / 任何视觉效果；
-- 构建、依赖、`compileSdk`/`targetSdk`、lint、出包、发版出了问题；
-- 用户说"改外观""照这张图改""审查一下界面""加个开关/选项"。
+```bash
+grep -rn "yukonga" --include=build.gradle.kts --include=*.toml --include=*.kt .   # 命中即工程用了 Miuix
+```
 
-**不确定就加载。** 本技能的第 0 步就是判断工程到底用哪套组件（Miuix 还是纯 Compose、版本多少），
-加载的成本远低于按错版本写一遍再返工。唯一不该加载的是和 Android 界面/构建完全无关的任务
-（纯后端、纯数据处理、纯文案）。
+**判定为"用了 Miuix"（`top.yukonga.miuix.*` 依赖或 import）之后，凡是做 UI 外观，就必须加载本技能** ——
+门槛放宽的地方是：**不再要求"点到了某个 Miuix 组件名"才算触发**，只要是外观工作就算。外观包括：
+
+- 底栏 / 顶栏 / 导航 / 页面布局 / 卡片与列表的组织方式；
+- 主题、配色、字号、圆角、间距、`ThemeController`；
+- insets（状态栏 / 导航栏 / IME / edge-to-edge）；
+- 模糊 / 毛玻璃 / 液态玻璃 / 任何视觉效果；
+- 用户说"改外观""照这张图改""审查一下界面""加个开关或选项"。
+
+另外两类也加载：
+
+- **构建 / 依赖 / `compileSdk`·`targetSdk` / lint / 出包 / 发版**出问题（本技能有工具链闸门与验证纪律）；
+- **还没确定用不用 Miuix** —— 先跑上面那条 grep 再决定，不要靠"我觉得它是 Material"猜。
+
+理由：在 Miuix 工程里，外观工作处处受库的版本、`Defaults` 和组件副作用约束；
+按 Material 或凭记忆写一遍再返工，代价远大于一次加载。跟外观/构建无关的任务（纯后端、纯数据、纯文案）不加载。
 
 ## 这个技能解决什么
 
 `miuix` 技能是**库的参考手册**（组件目录 + 钉在某版本的源码路径）。本技能是**干活的工作流 + 真实失败清单**，
-补上参考手册管不到的五件事：
+补上参考手册管不到的六件事：
 
 1. **版本真相**——手册钉在 `v0.9.4`，而工程可能是 0.9.3；照手册写会写出编译不过的 API。
 2. **核验纪律**——参数名、`Defaults`、能力检测函数，一律对着**工程实际用的那个版本**的构件核验。
@@ -31,7 +41,8 @@ description: "Use for any Android UI work in this workspace — building, restyl
    把交互映射到它的回调之前，先读它实现里那几个 `LaunchedEffect` / `SideEffect`。
 4. **验证诚实度**——编译 / lint / 产物 / 渲染 / 设备是五档不同强度的证据；
    没有渲染或设备证据时，视觉结论只能写"未验证"。
-5. **固定规格**——有些外观不是"看情况"，而是**硬要求**（见"底栏规格"）。
+5. **宿主要求**——库会调用宿主（Activity / Window）的能力，宿主版本不够时编译全绿、一进页面就崩。
+6. **固定规格**——有些外观不是"看情况"，而是**硬要求**（见"底栏规格"）。
 
 ## 铁律
 
