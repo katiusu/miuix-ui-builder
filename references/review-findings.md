@@ -36,6 +36,19 @@
 | 14 | 只用图标表达状态（直观/原文、开关状态） | 不得只靠图标或颜色传达状态 | 图标 `contentDescription` 描述**动作**，同时用文字写明当前状态；颜色做冗余编码而不是唯一编码 |
 | 15 | 未使用的 import / 残留旧文件 | 代码契约 | 清掉；重构后 `git status` 与源码清单各过一遍 |
 
+## 工程与交付层（发版前必扫）
+
+上面 15 条是"界面看起来对不对"，下面这几条是"工程与交付对不对"，一次真实发版里全部踩过：
+
+| # | 不符合项 | 依据 | 修法 |
+|---|---|---|---|
+| 16 | 只报 `BUILD SUCCESSFUL`，没验 release 包内容 | 实测：`optimizeReleaseResources` 静默产出 0 文件，包缺 `AndroidManifest.xml` / `resources.arsc`，`aapt2 dump badging` 报 `could not identify format of APK.` | 按 `android-release.md` 的"四件套"逐条核验（发版前必查） |
+| 17 | 换了签名 key 就发版 | 老用户安装报"应用未安装"，只能卸载重装（本机记录全丢） | 发版前比对上一版 APK 的证书 SHA-256（`android-release.md` 第 3 节） |
+| 18 | 按"正文里出现简单名"批量删 import | 委托属性 `getValue` / `setValue` 是隐式使用，删完报 `has no method 'getValue(Nothing?, KProperty0<*>)'` | 让编译器报 unused，或删完立刻编译一遍 |
+| 19 | 交付文档照上一版转述 | README 写"日志页可复制最近 300 条"，实际复制在设置页 → 用户照文档找不到入口 | 写文档前回读实现（`read` / `grep` 一次），按钮位置、数字都对着源码核 |
+| 20 | 从示例工程整包拷代码 | 带进更新检查、Hook 回执、重启应用等无关件与依赖 | 按 `retrofit-existing-app.md` 的移植账本筛"骨架件 / 管道件 / 示例业务件" |
+| 21 | 用 `pkill -f GradleDaemon` 清守护进程 | 模式匹配到调用它的 shell，任务以 `[killed by signal: SIGTERM]` 收尾 | `pkill -f 'Gradle[D]aemon'`，或 `kill -TERM <逐个 PID>` |
+
 ## 不做什么（同样重要）
 
 - **不加**没有产品需要的 showcase 效果（诊断面板、FPS 监视、blur 试验台）；

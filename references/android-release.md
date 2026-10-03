@@ -26,6 +26,51 @@ unzip -p <apk> classes.dex | strings | grep -c "refractionHeight"   # 换成你�
 unzip -p <apk> assets/xposed_init
 ```
 
+### release 包必须"有内容"（四件套）
+
+`BUILD SUCCESSFUL` 不等于包能装。这四样缺一不可：`AndroidManifest.xml`、`resources.arsc`、
+`classes*.dex`，以及 `aapt2 dump badging` 能读出 `package:`（若它回你一句
+`could not identify format of APK.`，说明手上是个残包）：
+
+```bash
+unzip -l app/build/outputs/apk/release/app-release-unsigned.apk | grep -E "AndroidManifest.xml|resources.arsc|classes.*\.dex"
+/opt/android-sdk/build-tools/36.0.0/aapt2 dump badging app/build/outputs/apk/release/app-release-unsigned.apk | head -3
+```
+
+### `BUILD SUCCESSFUL` 但包是残的：`optimizeReleaseResources` 静默产出 0 个文件
+
+**症状**（实测：AGP 9.4.1 + `android.aapt2FromMavenOverride` 指向 build-tools 的 aapt2）：
+release APK 只有 1.49 MB / 80 条目，**既没有 `AndroidManifest.xml` 也没有 `resources.arsc`**，装不上；
+`aapt2 dump badging` 报 `could not identify format of APK.`；
+而 Gradle 全程 `BUILD SUCCESSFUL`、一句警告都没有。`--no-build-cache` 也修不掉
+（构建缓存会把这份空输出一起缓存下来）。
+
+**定位**（顺着 `intermediates/` 查哪个任务把内容丢了）：
+
+```bash
+# 1) 资源链接产物：应该含 manifest（proto 格式，没有 arsc 是正常的）
+unzip -l app/build/intermediates/linked_resources_proto_format/release/*/linked-resources-proto-format-release.ap_
+# 2) 二进制资源包：manifest + arsc 都该在（好包）
+unzip -l app/build/intermediates/shrunk_resources_binary_format/release/*/shrunk-resources-binary-format-release.ap_
+# 3) 资源优化任务的输出目录：metadata 里声明了 resources-release-optimize.ap_，目录里却只有 metadata 本身
+ls -la app/build/intermediates/optimized_processed_res/release/optimizeReleaseResources/
+```
+
+第 2 步的资源包是好的、第 3 步声明的输出不存在 → 根因是 `optimizeReleaseResources`（aapt2 `optimize`）
+在这个 aapt2 组合下"成功"但产出 0 文件。手工 `aapt2 optimize <shrunk ap_> -o /tmp/x.ap_` 却完全正常，
+所以不是 aapt2 二进制坏了，而是该任务与 `aapt2FromMavenOverride` 的交互问题。
+
+**修法**：在 `gradle.properties` 里关掉资源优化：
+
+```properties
+# 容器 aapt2 override 组合下 optimizeReleaseResources 会「成功」但产出 0 文件，
+# 导致 release APK 缺 AndroidManifest.xml / resources.arsc；官方 x86_64 aapt2 环境可删掉此行。
+android.enableResourceOptimizations=false
+```
+
+改完必须 `./gradlew :app:clean :app:assembleRelease --no-build-cache`（只加参数、不清 `build/` 不够），
+再复验条目数（本次 80 → 92）与上面那套四件套。
+
 ## 3. 签名
 
 `assembleRelease` 出来的是 **未签名** 包（工程没有 signingConfig）。而 Android 11+ 要求 targetSdk ≥ 30 的包
@@ -41,6 +86,14 @@ $BT/apksigner sign \
 $BT/apksigner verify --verbose --print-certs HyperOS-Autofill-Fix-2.1.0.apk
 # 期望：v2 scheme true、v3 scheme true、Signer #1 certificate DN: CN=Android Debug
 ```
+
+实用参数：`--v1-signing-enabled true --v2-signing-enabled true`（`minSdk ≥ 24` 时 v1 不是必须，
+留着对老设备更稳；只加 v1 的话 Android 11+ 会拒绝安装——`jarsigner` 就是这种情况）。
+
+**容器里 `zipalign` 通常跑不了**（它是原生 x86_64 二进制，arm64 上直接 `bad machine`；
+`apksigner` 是脚本包装，所以可用）。对齐由 AGP 的打包环节完成，核验时用 `unzip -v <apk>` 看
+`AndroidManifest.xml` / `resources.arsc` / `classes*.dex` 是不是 `Stored`（未压缩）即可；
+要精确核验偏移就自己读 zip 头（Python `zipfile` 也可）。
 
 **升级路径**：先取上一版已发布 APK 的证书指纹，和本机 keystore 比：
 
@@ -158,5 +211,20 @@ unzip -p app-release.apk classes.dex | strings | grep -c "floating_nav_bar"     
    - debug 包已是新版本、release 还是旧版本 → 编译过了，只差 release 打包，补跑 `assembleRelease`；
    - 两个都是旧版本 → 没跑完，整条重跑（幂等）；
 3. `git status` / `git log -1` —— 别把已经提交的改动再做一遍。
+
+## 发版收尾清单（代码之外的交付物）
+
+一次发版通常不止推代码，按顺序做完这些（2.3.0 实测走通的完整链路）：
+
+1. **版本号**：`versionCode` 唯一且单调（本工程用日期式 `2026100300`），`versionName` 与 CHANGELOG、README 徽章一致；
+2. **`CHANGELOG.md`**：加 `## [X.Y.Z] — YYYY-MM-DD` 段，分「新增 / 变更 / 修复」三类；
+3. **提交 + annotated tag**：`git tag -a vX.Y.Z -m "..."`（工程既有约定是 annotated 的 `vX.Y.Z`，不是裸版本号）；
+4. **Release 正文**：按上一版的模板写（✨ 新增 / ♻️ 变更 / 🐛 修复 / 📦 安装 / 🔍 校验），
+   **校验段必须含签名证书 SHA-256 与 APK SHA-256**，并写明"从哪些旧版本可以直接覆盖升级"；
+5. **资产上传后回下载复核**：去掉 token 再下一次，`sha256sum` 与正文里写的一致才算发布成功（见第 5 节）；
+6. **README 同步**：界面表、代码结构表、构建段、坑清单都要**照着代码核**再改（本次就抓出
+   README 里"日志页有复制按钮"与实现不符——复制其实在设置页，日志页顶栏只有切换视图与清空）；
+7. **仓库元数据**：description / topics 顺手补齐（topics 用 `PUT /repos/{repo}/topics`，
+   只能是小写字母数字加连字符；"最新版号"这类会过期的信息不要写进 description）。
 
 

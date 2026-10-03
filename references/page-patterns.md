@@ -171,6 +171,41 @@ if (isWideScreen) {
 - **缺图标不要引大库**：三个状态图标是用 `materialIcon(name) + materialPath { ... }` 手写路径自建的（`ui/icons/StatusIcons.kt`），
   只依赖 `material-icons-core`；为几个图标引入 `material-icons-extended` 会让包体涨好几 MB。
 
+### 6.5 变体：正方形状态卡 + 信息卡 + 独立按钮卡（用户说"分开"时）
+
+用户嫌"状态、服务名、按钮挤在一张卡里"，要求"分成方块"时，**不要**继续用 §6 的等高行，改成
+**正方形块 + 独立操作卡**（实测于 HyperOS-Autofill-Fix 2.3.0 概览页）：
+
+```kotlin
+if (isWideScreen) {                                  // 宽屏：三卡等分
+    Row(cardsModifier, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        StatusCard(modifier = Modifier.weight(1f).fillMaxHeight())
+        InfoCard(modifier = Modifier.weight(1f).fillMaxHeight())
+        ActionCard(..., stacked = true, modifier = Modifier.weight(1f).fillMaxHeight())
+    }
+} else {                                             // 窄屏：两个正方形 + 一行按钮
+    Row(cardsModifier, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        StatusCard(modifier = Modifier.weight(1f).aspectRatio(1f))     // 正方形
+        InfoCard(modifier = Modifier.weight(1f).aspectRatio(1f))       // 正方形
+    }
+    ActionCard(
+        ...,
+        stacked = false,
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp).padding(top = 12.dp),
+    )
+}
+```
+
+- **正方形靠 `Modifier.weight(1f).aspectRatio(1f)`**；不要再叠 `height(IntrinsicSize.Min)`——
+  那是"同一行等高"的机制，和正方形冲突（写了也白写）；
+- **一张卡只回答一个问题**：状态卡（色块 + 一个大图标 + 一句文案）只答"是否正常"；
+  原始值（服务名 / 包名 / 当前档位）放**另一张**信息卡，读不到时用 `onSurfaceVariantSummary` 说明；
+  操作是"下一步动作"，单独成卡（`Row` 里两个 `weight(1f)` 的 `Button` / `TextButton`），
+  窄屏上下排、宽屏并排都成立；
+- 可点进详情的卡用 `pressFeedbackType = PressFeedbackType.Tilt`；纯展示卡**不要**给 `onClick`
+  （给了就会有按压反馈，用户以为能点进去）；
+- 语义色三档与自建图标同 §6；状态文案要能单独读懂（"已被改回小米自家服务"优于"异常"）。
+
 ## 7. 设置页：分区顺序与形态
 
 固定顺序（每段一张 Card）：**功能/模块 → 界面 → 语言 → 更新 → 数据**。

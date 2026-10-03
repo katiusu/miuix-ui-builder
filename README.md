@@ -11,7 +11,7 @@
 4. **验证诚实度**：编译 / lint / 产物 / 渲染 / 设备是五种不同强度的证据，不能互相顶替。没有渲染或设备证据时，视觉结论只能写"未验证"。
 5. **宿主要求**（补充）：库会调用宿主（Activity / Window）提供的能力，宿主版本不够时**编译照样全绿、一进那个页面就崩**——所以"能编译"之后还要按页面真机验证。
 6. **固定规格**（补充）：有些外观不是"看情况"，而是硬要求。目前有一条：**自带底部导航的外壳必须同时提供悬浮毛玻璃底栏与贴底普通底栏，并给用户开关**（理由与实现见 [`references/bottom-bars.md`](references/bottom-bars.md)）。
-7. **现成骨架**（补充）：外壳、页面、配置项管道都有跑通过的参考实现（[`app-shell.md`](references/app-shell.md) / [`page-patterns.md`](references/page-patterns.md) / [`option-pipeline.md`](references/option-pipeline.md)），先抄骨架再改。
+7. **现成骨架**（补充）：外壳、页面、配置项管道都有跑通过的参考实现（[`app-shell.md`](references/app-shell.md) / [`page-patterns.md`](references/page-patterns.md) / [`option-pipeline.md`](references/option-pipeline.md)），先抄骨架再改；**已经在用的工程要整体换骨架**的，按 [`retrofit-existing-app.md`](references/retrofit-existing-app.md) 的移植账本走。
 
 ## 加载标准（判定门槛已放宽）
 
@@ -45,19 +45,20 @@ npx skills add katiusu/miuix-ui-builder
 
 | 文件 | 作用 |
 |---|---|
-| [`SKILL.md`](SKILL.md) | 入口：加载标准 + 11 条铁律 + 17 条真实失败清单 + 6 步工作流 + 交付报告格式 + 底栏规格 + 结构参考 |
-| [`references/bottom-bars.md`](references/bottom-bars.md) | **底栏规格的完整实现**：悬浮 + 贴底两种形态、开关、落盘、backdrop 门控、内容让位、`RowScope` 坑、8 个实测坑 + 验收清单 |
+| [`SKILL.md`](SKILL.md) | 入口：加载标准 + 11 条铁律 + 23 条真实失败清单 + 6 步工作流 + 交付报告格式 + 底栏规格 + 结构参考 |
+| [`references/bottom-bars.md`](references/bottom-bars.md) | **底栏规格的完整实现**：贴底普通 + 悬浮毛玻璃 + 液态玻璃**三档**、开关怎么摆、落盘、backdrop 门控、内容让位、`RowScope` 坑、12 个实测坑 + 验收清单 |
 | [`references/app-shell.md`](references/app-shell.md) | **应用外壳骨架**：单 Activity + 多页 pager + 三档底栏（悬浮 / 贴底 / 液态玻璃）+ 宽屏 rail、内容让位三条路径、主题与窗口背景、语言、桌面图标隐藏 |
 | [`references/page-patterns.md`](references/page-patterns.md) | **页面结构范式**：三种页面形态、通用骨架（顶栏渐进模糊参数）、元素选择表、主页仪表盘宽窄两套布局、设置页与关于页的实测细节 |
 | [`references/option-pipeline.md`](references/option-pipeline.md) | **声明式配置项管道**：`OptionSpec` 字段表 → 渲染分派 → 三条门控 → 默认值语义 → 三个输入对话框 → `AppSettings` 外壳级设置 |
+| [`references/retrofit-existing-app.md`](references/retrofit-existing-app.md) | **把既有工程整体换成这套骨架**：移植账本（骨架件 / 管道件 / 示例业务件）、剥业务耦合与偏好键对齐、页面重写顺序、三个编译坑、构建期验收指标、代码之外的交付物 |
 | [`references/component-contracts.md`](references/component-contracts.md) | 组件内部会动你的状态：Miuix `SearchBar`/`InputField` 回车清空关键词的完整归因，以及 10 分钟审计一个陌生组件的方法 |
 | [`references/glass.md`](references/glass.md) | 毛玻璃 vs 液态玻璃的判定、两套库（miuix-blur / backdrop）配方、**换库迁移的六个坑**、性能与降级阶梯 |
 | [`references/edge-to-edge.md`](references/edge-to-edge.md) | 全屏 + 系统栏 / IME 检查单、**系统栏图标跟随应用内主题**的坑（含字节码核验）、被工具链挡住时怎么报 |
 | [`references/api-verification.md`](references/api-verification.md) | 把任意版本的依赖拉下来核验 API：sources jar、javap、AAR 元数据、Gradle `.module` 预判版本冲突 |
-| [`references/android-release.md`](references/android-release.md) | 出包 → 核对产物 → **工具链闸门** → 签名（含"能不能覆盖升级"）→ 推送 → 发 Release + 匿名复核 |
+| [`references/android-release.md`](references/android-release.md) | 出包 → 核对产物（**release 包四件套**、"残包"的根因与修法）→ **工具链闸门** → 签名（含"能不能覆盖升级"、容器里没有 `zipalign` 怎么办）→ 推送 → 发 Release + 匿名复核 → **发版收尾清单** |
 | [`references/runtime-host-requirements.md`](references/runtime-host-requirements.md) | **编译通过 ≠ 组合期不炸**：Miuix 组件内部的 `NavigationBackHandler` 需要 `activity ≥ 1.13.0`，以及从 logcat 栈 + `javap` 归因"页面/弹窗打不开"的通用方法 |
 | [`references/aarch64-container-toolchain.md`](references/aarch64-container-toolchain.md) | aarch64 容器专属：**aapt2 双命名空间 shim**（argv + daemon stdin 都要翻译）、影子 SDK、镜像 `init.gradle`、老 aapt2 卡 `compileSdk`、Git 推不动时的 **Git Data API 兜底** |
-| [`references/review-findings.md`](references/review-findings.md) | 一轮 UI review 实际抓到的 **15 类不符合项**（结构 / 颜色 / 状态 / 自适应），可直接当自查 checklist |
+| [`references/review-findings.md`](references/review-findings.md) | **15 类界面不符合项**（结构 / 颜色 / 状态 / 自适应）+ **6 类工程与交付不符合项**（残包、换签名、删 import、文档脱节…），可直接当自查 checklist |
 
 ## 十一条铁律（摘要）
 
@@ -70,7 +71,7 @@ npx skills add katiusu/miuix-ui-builder
 7. **状态归属不变**：重构外观不顺手改状态所有者、导航、insets。
 8. **验证分层**，没有渲染 / 设备证据就写"未验证"。
 9. **不承诺做不到的前提**：外部 skill 给的前置条件（如 `targetSdk ≥ 35`）如果被工具链挡住，先验证可行性，再如实报告受阻项 + 证据，不要硬改配置把构建推倒。
-10. **底栏两种形态**：自带底部导航的应用外壳，必须同时提供**悬浮毛玻璃底栏**与**贴底普通底栏** + 一个开关（用户明确不要才例外）。
+10. **底栏至少两档**：自带底部导航的应用外壳，必须同时提供**悬浮毛玻璃底栏**与**贴底普通底栏** + 一个开关（用户明确不要才例外）；第三档**液态玻璃**按需求加，档位用两个布尔派生 `navBarMode`，别让用户拼出无意义组合。
 11. **结构先抄骨架**：外壳 / 页面 / 配置项管道照已验证的参考写，不要重新发明结构。
 
 ## 毛玻璃 ≠ 液态玻璃
@@ -134,6 +135,27 @@ npx skills add katiusu/miuix-ui-builder
 - 迁移经验：**"提取 GUI"最省事的做法是保留同名 object 桩**——把 Hook 侧的 `XposedServiceManager` /
   `HookStatusStore` 换成本地实现（同名同签名），界面代码一行不改也能跑起来；
 - 这份工程还顺带证明了"外壳三档底栏 + 宽屏 rail + 三条内容让位路径"在真机上能同时成立。
+
+## 第五作者的补充（HyperOS Autofill Fix 2.3.0：照示例骨架整体重构 + 出正式版）
+
+第四作者蒸出了骨架，第五作者把**一个已经在用、已经在发版的工程**整体搬了上去（12 个 `.kt` / 1481 行 →
+60 文件 / +6380 行），顺手把工具链升到 Miuix 0.9.4 / AGP 9.4.1 / Gradle 9.7.1 / compileSdk 37，并发布了 2.3.0。攒下来的经验：
+
+- **移植账本**（拷什么 / 不拷什么 / 偏好键怎么对齐 / 页面重写顺序 / 三个编译坑 / 验收指标）单独成篇 →
+  [`references/retrofit-existing-app.md`](references/retrofit-existing-app.md)；
+- **最贵的一次事故**：release 包一路 `BUILD SUCCESSFUL`，其实**没有 `AndroidManifest.xml` 和 `resources.arsc`**，
+  根本装不上；根因是 `optimizeReleaseResources`（aapt2 `optimize`）在容器 aapt2 override 下"成功"却产出 0 个文件，
+  修法是 `android.enableResourceOptimizations=false` + `clean` 重出包 → 收进 `android-release.md`，
+  并把"四件套核验"写进日常验证；
+- **底栏从两档扩到三档**（加了自绘的 iOS 液态玻璃）：档位用
+  `navBarMode = if (!isFloatingNavbar) 0 else if (!isLiquidGlass) 1 else 2` 派生，开关用"悬浮"+"液态玻璃"
+  两个布尔互相包含，宽屏 rail 只在贴底档替换底栏 → `bottom-bars.md` §2.5；
+- **概览页的"分开"需求**（用户要状态块 / 服务名块 / 按钮各自独立）：窄屏用 `weight(1f).aspectRatio(1f)`
+  做两个正方形块 + 按钮单独成卡，宽屏三卡等分 → `page-patterns.md` §6.5；
+- **发版不只是推代码**：CHANGELOG + annotated tag + GitHub Release（正文含签名证书与 APK 的 SHA-256）+
+  回下载复核 + README 对着代码改 + topics 补齐 → `android-release.md` 的"发版收尾清单"；
+- 两个真实教训：`pkill -f GradleDaemon` 会**把调用它的 shell 一起杀掉**（用 `pkill -f 'Gradle[D]aemon'`）；
+  按"正文里出现简单名"批量删 import 会把委托属性 `getValue` / `setValue` 一起删掉，要到编译期才报错。
 
 ## 开源协议
 
