@@ -33,7 +33,7 @@ grep -rn "yukonga" --include=build.gradle.kts --include=*.toml --include=*.kt . 
 ## 这个技能解决什么
 
 `miuix` 技能是**库的参考手册**（组件目录 + 钉在某版本的源码路径）。本技能是**干活的工作流 + 真实失败清单**，
-补上参考手册管不到的六件事：
+补上参考手册管不到的七件事：
 
 1. **版本真相**——手册钉在 `v0.9.4`，而工程可能是 0.9.3；照手册写会写出编译不过的 API。
 2. **核验纪律**——参数名、`Defaults`、能力检测函数，一律对着**工程实际用的那个版本**的构件核验。
@@ -43,6 +43,8 @@ grep -rn "yukonga" --include=build.gradle.kts --include=*.toml --include=*.kt . 
    没有渲染或设备证据时，视觉结论只能写"未验证"。
 5. **宿主要求**——库会调用宿主（Activity / Window）的能力，宿主版本不够时编译全绿、一进页面就崩。
 6. **固定规格**——有些外观不是"看情况"，而是**硬要求**（见"底栏规格"）。
+7. **现成骨架**——外壳、页面、配置项管道都有跑通过的参考实现（见"结构参考"）；先抄骨架再改，
+   比每个工程重新发明一套写法便宜得多。
 
 ## 铁律
 
@@ -64,6 +66,8 @@ grep -rn "yukonga" --include=build.gradle.kts --include=*.toml --include=*.kt . 
    如果被本机工具链挡住，**先验证可行性，再如实报告受阻项 + 证据**，不要硬改配置把构建推倒。
 10. **底栏两种形态**：自带底部导航的应用外壳，**必须同时提供悬浮毛玻璃底栏与贴底普通底栏 + 一个开关**
     （用户明确说不要才例外）。见下方"底栏规格（硬性）"。
+11. **结构先抄骨架**：外壳 / 页面 / 配置项管道都有已验证的参考写法（见"结构参考"）；
+    先照抄骨架，再按需求改——重新发明一套结构，等于把别人踩过的坑再踩一遍。
 
 ## 底栏规格（硬性要求）
 
@@ -83,6 +87,26 @@ grep -rn "yukonga" --include=build.gradle.kts --include=*.toml --include=*.kt . 
 - 两种形态**共用同一套"内容让位"逻辑**（各页的 `contentBottomPadding`），不要写两套 padding；
 - 两边的 inset 都由组件自己吃（`defaultWindowInsetsPadding = true`），**不要再给父容器加 padding**。
 
+## 结构参考：外壳 / 页面 / 配置项（先抄再改）
+
+三份参考来自一个真实跑通、出过可安装 APK 的纯 GUI 工程
+（Miuix 0.9.4 / Compose BOM 2026.09.00 / AGP 9.4.1 / compileSdk 37）。
+写外壳或页面之前先读对应那份，**照抄骨架再改**：
+
+| 要做的东西 | 读哪份 | 一句话骨架 |
+|---|---|---|
+| 应用外壳（多页 + 底栏 + 横屏） | `references/app-shell.md` | 单 Activity 持状态 → `HorizontalPager(userScrollEnabled = false)` 装 4 页 → `navBarMode = if (!isFloatingNavbar) 0 else if (!isLiquidGlass) 1 else 2` 三档底栏 → 宽屏只在 mode 0 换 `NavigationRail` |
+| 任何一个页面的内部结构 | `references/page-patterns.md` | `Scaffold(topBar = BlurredBar { TopAppBar }, contentWindowInsets = systemBars + displayCutout .only(Horizontal))` → `Box(blurSource)` → `LazyColumn(pageScrollModifiers)` → 分区 = `SmallTitle` + `Card(h12/b12)` |
+| 一堆设置项 / 功能开关 | `references/option-pipeline.md` | 声明 `OptionSpec` → `HookOptionsPage` 渲染 + 全局搜索 → `ConfigState.set` 双写内存与 `PrefsStore` → 门控只走 `rememberOptionEnabled(spec)` |
+
+三条最容易违反的结构约定：
+
+1. **状态只提升到外壳**：页面是无状态受控组件（值 + 回调 + `extraBottomPadding`），开关改动**立即落盘**；
+2. **insets 只吃一边**：页面 `Scaffold` 的 `contentWindowInsets` 只留 `Horizontal`
+   （Miuix 默认是 `systemBars.union(displayCutout)` 全量，**必须显式覆盖**），纵向内边距由内容自己算；
+3. **模糊层必须不透明**：顶栏 Haze 的 `backgroundColor = surfaceColor`；做成透明会让卡片硬边缘透出来，
+   看起来像"组件盖在模糊之上"而不是"糊在下面"。
+
 ## 常见失败（都真实发生过，照单避开）
 
 | 失败 | 症状 | 对策 |
@@ -99,6 +123,10 @@ grep -rn "yukonga" --include=build.gradle.kts --include=*.toml --include=*.kt . 
 | **把"我替用户定的默认"藏在代码里** | 用户得翻代码才知道默认值/开关位置 | 交付报告里单列一节：代定的默认 + 一句话怎么改 |
 | 只做编译期核验，不查宿主版本 | 某个页面/弹窗"打不开"或"没内容"，其实一进就 `IllegalStateException` | `references/runtime-host-requirements.md`（Miuix 需要 `activity ≥ 1.13.0`） |
 | 只在"正常机器"的前提下调工具链 | aapt2 读不到容器路径 / 解析不了新 platform 的 `resources.arsc` | `references/aarch64-container-toolchain.md` |
+| 顶栏模糊层设成透明 | 卡片硬边缘从模糊层里透出，像"组件盖在模糊之上" | `backgroundColor = surfaceColor`（`references/page-patterns.md`） |
+| `WindowDropdownPreference` 没传 `onExpandedChange` | 展开态被组件内部接管，展开/收起与选中不同步 | 显式传 `onExpandedChange = { }`（`references/page-patterns.md`） |
+| 搜索只注册"当前页可见项" | 子页面里的项、滑块主开关搜不到 | 子页面与 `masterKey` 也要 `registerAll`（`references/option-pipeline.md`） |
+| 隐藏桌面图标后没留回程入口 | 用户自己切完就再也打不开应用 | `activity-alias` + `DONT_KILL_APP`，并留通知/快捷方式入口（`references/app-shell.md`） |
 | 每条记录套一张 `Card`、红色表达"正常工作"的指标 | 设计语言里点名的失败做法 + 颜色角色错用 | `references/review-findings.md` 逐条 checklist |
 | 改完 `SKILL.md` 的 frontmatter / 只 `curl` raw 地址就宣布发布成功 | 描述里的 `: `（如 `Keywords: ...`）让 YAML 变成嵌套映射 → 加载器报 `No skills found`，**整个技能静默失效**；raw 地址还会给你 CDN 上的旧内容 | 用消费方命令实跑 + 干净 clone 核对 sha（见"验证"一节） |
 
@@ -137,6 +165,7 @@ mkdir -p /tmp/miuix-src && (cd /tmp/miuix-src && unzip -oq ../miuix-ui-android-<
 
 动手前写清：**层级**、**宿主**（要不要新增 `Scaffold`/`MiuixTheme`）、**状态归属**、
 **insets 谁让开**（含 IME）、**形状与颜色来源**（哪个 Defaults / 哪个 token）。
+结构本身先查"结构参考"那三份：外壳抄 `app-shell.md`、页面骨架抄 `page-patterns.md`、设置项抄 `option-pipeline.md`。
 说不清就是还没想清，别写代码。有底栏导航时，先把"底栏两种形态 + 开关"排进方案。
 
 ### 4. 实现
@@ -145,7 +174,8 @@ mkdir -p /tmp/miuix-src && (cd /tmp/miuix-src && unzip -oq ../miuix-ui-android-<
 - 每个新增的公开 API 调用都能指回源码里的那一行；
 - 偏离 Defaults 时把原因写进注释（为什么是 24dp 而不是默认 16dp）；
 - 涉及模糊/玻璃时先读 `references/glass.md`；涉及系统栏/全屏时先读 `references/edge-to-edge.md`；
-  涉及底栏/导航时先读 `references/bottom-bars.md`。
+  涉及底栏/导航时先读 `references/bottom-bars.md`；
+  涉及外壳结构读 `references/app-shell.md`、页面内部读 `references/page-patterns.md`、设置项列表读 `references/option-pipeline.md`。
 
 ### 5. 验证（按强度递增，做到哪步报到哪步）
 
@@ -202,6 +232,12 @@ done
 - `references/api-verification.md` —— 把任意版本依赖拉下来核验 API；用 Gradle `.module` 预判版本冲突
 - `references/component-contracts.md` —— 组件内部会动你的状态：怎么找、怎么改
 - `references/bottom-bars.md` —— **底栏规格的完整实现**：两种形态、开关、落盘、backdrop 门控、内容让位、RowScope 坑
+- `references/app-shell.md` —— **应用外壳骨架**：单 Activity + 多页 pager + 三档底栏（悬浮/贴底/液态玻璃）
+  + 宽屏 rail、内容让位三条路径、主题与窗口背景、语言、桌面图标隐藏
+- `references/page-patterns.md` —— **页面结构范式**：三种页面形态、通用骨架、顶栏渐进模糊参数、元素选择表、
+  主页仪表盘两套布局、设置页与关于页的实测细节
+- `references/option-pipeline.md` —— **声明式配置项管道**：`OptionSpec` 字段表、9 种类型渲染、三条门控、
+  默认值语义、三个输入对话框、外壳级 `AppSettings` 模式
 - `references/glass.md` —— 毛玻璃 vs 液态玻璃、两套库配方、换库迁移的坑、降级阶梯
 - `references/edge-to-edge.md` —— 全屏 + 系统栏 / IME 内边距检查单、系统栏图标与主题的坑、被工具链挡住时怎么报
 - `references/android-release.md` —— 出包 → 核对 → 签名 → 推送 → 发 Release；工具链闸门

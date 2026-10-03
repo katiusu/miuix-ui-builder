@@ -3,7 +3,7 @@
 一个 **agent skill**：在真实 Android 工程里构建 / 重构 **Miuix（HyperOS 设计语言）Compose 界面**的工作流 + 真实失败清单。
 
 它不是组件手册 —— 组件手册是 [`miuix`](https://github.com/limczhh/miuix-skill) 那个 skill 的职责。
-它补齐的是参考手册管不到的六件事：
+它补齐的是参考手册管不到的七件事：
 
 1. **版本真相**：手册钉在某个版本，工程可能用别的版本。照手册写会写出编译不过的 API。先锁定工程实际依赖的版本，并**以工程为准**。
 2. **核验纪律**：每个参数名、每个 `Defaults`、每个能力检测函数，都要对着**该版本的真实构件**（sources jar / 字节码 / AAR 元数据 / `.module`）核验，不靠记忆、不靠别的库的命名习惯。
@@ -11,6 +11,7 @@
 4. **验证诚实度**：编译 / lint / 产物 / 渲染 / 设备是五种不同强度的证据，不能互相顶替。没有渲染或设备证据时，视觉结论只能写"未验证"。
 5. **宿主要求**（补充）：库会调用宿主（Activity / Window）提供的能力，宿主版本不够时**编译照样全绿、一进那个页面就崩**——所以"能编译"之后还要按页面真机验证。
 6. **固定规格**（补充）：有些外观不是"看情况"，而是硬要求。目前有一条：**自带底部导航的外壳必须同时提供悬浮毛玻璃底栏与贴底普通底栏，并给用户开关**（理由与实现见 [`references/bottom-bars.md`](references/bottom-bars.md)）。
+7. **现成骨架**（补充）：外壳、页面、配置项管道都有跑通过的参考实现（[`app-shell.md`](references/app-shell.md) / [`page-patterns.md`](references/page-patterns.md) / [`option-pipeline.md`](references/option-pipeline.md)），先抄骨架再改。
 
 ## 加载标准（判定门槛已放宽）
 
@@ -44,8 +45,11 @@ npx skills add katiusu/miuix-ui-builder
 
 | 文件 | 作用 |
 |---|---|
-| [`SKILL.md`](SKILL.md) | 入口：加载标准 + 10 条铁律 + 13 条真实失败清单 + 6 步工作流 + 交付报告格式 + 底栏规格 |
+| [`SKILL.md`](SKILL.md) | 入口：加载标准 + 11 条铁律 + 17 条真实失败清单 + 6 步工作流 + 交付报告格式 + 底栏规格 + 结构参考 |
 | [`references/bottom-bars.md`](references/bottom-bars.md) | **底栏规格的完整实现**：悬浮 + 贴底两种形态、开关、落盘、backdrop 门控、内容让位、`RowScope` 坑、8 个实测坑 + 验收清单 |
+| [`references/app-shell.md`](references/app-shell.md) | **应用外壳骨架**：单 Activity + 多页 pager + 三档底栏（悬浮 / 贴底 / 液态玻璃）+ 宽屏 rail、内容让位三条路径、主题与窗口背景、语言、桌面图标隐藏 |
+| [`references/page-patterns.md`](references/page-patterns.md) | **页面结构范式**：三种页面形态、通用骨架（顶栏渐进模糊参数）、元素选择表、主页仪表盘宽窄两套布局、设置页与关于页的实测细节 |
+| [`references/option-pipeline.md`](references/option-pipeline.md) | **声明式配置项管道**：`OptionSpec` 字段表 → 渲染分派 → 三条门控 → 默认值语义 → 三个输入对话框 → `AppSettings` 外壳级设置 |
 | [`references/component-contracts.md`](references/component-contracts.md) | 组件内部会动你的状态：Miuix `SearchBar`/`InputField` 回车清空关键词的完整归因，以及 10 分钟审计一个陌生组件的方法 |
 | [`references/glass.md`](references/glass.md) | 毛玻璃 vs 液态玻璃的判定、两套库（miuix-blur / backdrop）配方、**换库迁移的六个坑**、性能与降级阶梯 |
 | [`references/edge-to-edge.md`](references/edge-to-edge.md) | 全屏 + 系统栏 / IME 检查单、**系统栏图标跟随应用内主题**的坑（含字节码核验）、被工具链挡住时怎么报 |
@@ -55,7 +59,7 @@ npx skills add katiusu/miuix-ui-builder
 | [`references/aarch64-container-toolchain.md`](references/aarch64-container-toolchain.md) | aarch64 容器专属：**aapt2 双命名空间 shim**（argv + daemon stdin 都要翻译）、影子 SDK、镜像 `init.gradle`、老 aapt2 卡 `compileSdk`、Git 推不动时的 **Git Data API 兜底** |
 | [`references/review-findings.md`](references/review-findings.md) | 一轮 UI review 实际抓到的 **15 类不符合项**（结构 / 颜色 / 状态 / 自适应），可直接当自查 checklist |
 
-## 十条铁律（摘要）
+## 十一条铁律（摘要）
 
 1. **版本真相**：以工程实际依赖为准，版本不一致要在报告里点明。
 2. **API 对着真实构件核验**，不猜签名。
@@ -67,6 +71,7 @@ npx skills add katiusu/miuix-ui-builder
 8. **验证分层**，没有渲染 / 设备证据就写"未验证"。
 9. **不承诺做不到的前提**：外部 skill 给的前置条件（如 `targetSdk ≥ 35`）如果被工具链挡住，先验证可行性，再如实报告受阻项 + 证据，不要硬改配置把构建推倒。
 10. **底栏两种形态**：自带底部导航的应用外壳，必须同时提供**悬浮毛玻璃底栏**与**贴底普通底栏** + 一个开关（用户明确不要才例外）。
+11. **结构先抄骨架**：外壳 / 页面 / 配置项管道照已验证的参考写，不要重新发明结构。
 
 ## 毛玻璃 ≠ 液态玻璃
 
@@ -115,9 +120,20 @@ npx skills add katiusu/miuix-ui-builder
 - 查"两种底栏是否都进了包"时踩了 **multi-dex 假阴性**：debug 包有 `classes..classes6.dex`，
   只搜 `classes.dex` 得到 0，遍历所有 dex 才看到符号 → 收进 `android-release.md`；
 - 长构建（7~10 分钟）被会话重启打断了一次，恢复流程（`ps` → 用 `aapt2 dump badging` 读产物里的
-  版本号判断上一轮跑到哪 → 只补差的那一步）收进 `android-release.md` 与 SKILL.md 的环境备忘；
+  版本号判断上一轮跑到哪 → 只补差的那一步）收进 `android-release.md`；
 - 交付报告新增一段 **「我替你定的默认」**（默认值 / 开关位置 / 共用让位逻辑这类代用户做的决定
   要单列出来），否则用户得翻代码才知道怎么改。
+
+第四作者的补充（MiuixGuiExample：把一个 Xposed 模板剥离 Hook 后的纯 GUI 工程）：
+
+- 该工程把"外壳 / 页面 / 配置项"三层写得很规整，于是**按结构而非按内容**蒸成三份新参考：
+  [`references/app-shell.md`](references/app-shell.md)、[`references/page-patterns.md`](references/page-patterns.md)、
+  [`references/option-pipeline.md`](references/option-pipeline.md)（各自的骨架与实测坑见文件内）；
+- 结构层的坑按"事故"记：`WindowDropdownPreference` 不传 `onExpandedChange` 会让展开态与选中态不同步；
+  Haze 顶栏的 `backgroundColor` 透明会让卡片硬边缘透出来；关于页的 `logoSpacer` 那个 `key` 就是折叠进度的分母；
+- 迁移经验：**"提取 GUI"最省事的做法是保留同名 object 桩**——把 Hook 侧的 `XposedServiceManager` /
+  `HookStatusStore` 换成本地实现（同名同签名），界面代码一行不改也能跑起来；
+- 这份工程还顺带证明了"外壳三档底栏 + 宽屏 rail + 三条内容让位路径"在真机上能同时成立。
 
 ## 开源协议
 
@@ -132,5 +148,8 @@ npx skills add katiusu/miuix-ui-builder
 
 ## 注意
 
-- SKILL.md 末尾的「本机环境备忘」（Android SDK 路径、arm64 上的 aapt2、DSHA 无障碍开关）是**作者机器相关**的部分，
-  换机器请按自己的环境调整，其余内容是通用的。
+- **SKILL.md 只放可移植的内容**。机器相关的经验（Android SDK 路径、aarch64 上的 aapt2、依赖镜像、DSHA 开关等）
+  统一放 [`references/aarch64-container-toolchain.md`](references/aarch64-container-toolchain.md)，
+  不要再往 SKILL.md 里加"本机环境备忘"（那种写法已被删除：换机器的人会照着不存在的路径去调）。
+- `references/` 里凡带具体路径或魔法数的，都写了它来自哪个工程、哪个版本；换版本前先按
+  [`references/api-verification.md`](references/api-verification.md) 重新核验，别直接照搬数字。
